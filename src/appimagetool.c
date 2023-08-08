@@ -62,7 +62,10 @@ typedef enum {
     fARCH_i686,
     fARCH_x86_64,
     fARCH_armhf,
-    fARCH_aarch64
+    fARCH_aarch64,
+    fARCH_riscv64,
+    fARCH_loongarch64,
+    fARCH_SIZE,
 } fARCH;
 
 static gchar const APPIMAGEIGNORE[] = ".appimageignore";
@@ -281,7 +284,7 @@ static void replacestr(char *line, const char *search, const char *replace)
 int count_archs(bool* archs) {
     int countArchs = 0;
     int i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < fARCH_SIZE; i++) {
         countArchs += archs[i];
     }
     return countArchs;
@@ -297,6 +300,10 @@ gchar* archToName(fARCH arch) {
             return "i686";
         case fARCH_x86_64:
             return "x86_64";
+        case fARCH_riscv64:
+            return "riscv64";
+        case fARCH_loongarch64:
+            return "loongarch64";
     }
 }
 
@@ -309,6 +316,10 @@ gchar* getArchName(bool* archs) {
         return archToName(fARCH_armhf);
     else if (archs[fARCH_aarch64])
         return archToName(fARCH_aarch64);
+    else if (archs[fARCH_riscv64])
+        return archToName(fARCH_riscv64);
+    else if (archs[fARCH_loongarch64])
+        return archToName(fARCH_loongarch64);
     else
         return "all";
 }
@@ -336,6 +347,18 @@ void extract_arch_from_e_machine_field(int16_t e_machine, const gchar* sourcenam
         archs[fARCH_aarch64] = 1;
         if(verbose)
             fprintf(stderr, "%s used for determining architecture %s\n", sourcename, archToName(fARCH_aarch64));
+    }
+
+    if (e_machine == 243) {
+        archs[fARCH_riscv64] = 1;
+        if(verbose)
+            fprintf(stderr, "%s used for determining architecture %s\n", sourcename, archToName(fARCH_riscv64));
+    }
+
+    if (e_machine == 258) {
+        archs[fARCH_loongarch64] = 1;
+        if(verbose)
+            fprintf(stderr, "%s used for determining architecture %s\n", sourcename, archToName(fARCH_loongarch64));
     }
 }
 
@@ -369,6 +392,14 @@ void extract_arch_from_text(gchar *archname, const gchar* sourcename, bool* arch
                 archs[fARCH_aarch64] = 1;
                 if (verbose)
                     fprintf(stderr, "%s used for determining architecture ARM aarch64\n", sourcename);
+            } else if (g_ascii_strncasecmp("riscv64", archname, 20) == 0) {
+                archs[fARCH_riscv64] = 1;
+                if (verbose)
+                    fprintf(stderr, "%s used for determining architecture RISC-V 64-bit\n", sourcename);
+            } else if (g_ascii_strncasecmp("loongarch64", archname, 20) == 0) {
+                archs[fARCH_loongarch64] = 1;
+                if (verbose)
+                    fprintf(stderr, "%s used for determining architecture LoongArch 64-bit\n", sourcename);
             }
         }
     }
@@ -715,7 +746,7 @@ main (int argc, char *argv[])
         }
 
         /* Determine the architecture */
-        bool archs[4] = {0, 0, 0, 0};
+        bool archs[fARCH_SIZE] = {0};
         extract_arch_from_text(getenv("ARCH"), "Environmental variable ARCH", archs);
         if (count_archs(archs) != 1) {
             /* If no $ARCH variable is set check a file */
